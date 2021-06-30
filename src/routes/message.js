@@ -6,56 +6,46 @@ const Message = require('../models/message')
 
 /** Route to get all messages. */
 router.get("/", (req, res) => {
-    Message.find()
-      .then((messages) => {
-        return res.json({ messages });
+    Message.find({}).then((messages) => {
+      res.send(messages);
+    });
+  });
+
+/** Route to get one message by id. */
+router.get("/:messageId", (req, res) => {
+    Message.findById(req.params.messageId).then((message) => {
+      res.send(message);
+    });
+  });
+
+/** Route to add a new message. */
+router.post('/', (req, res) => {
+    let message = new Message(req.body);
+    message
+      .save()
+      .then((messageResult) => {
+        return User.findById(req.body.author);
+      })
+      .then((user) => {
+        user.messages.unshift(message);
+        return user.save();
+      })
+      .then(() => {
+        return res.json({ message: "success" });
       })
       .catch((err) => {
         throw err.message;
       });
   });
 
-/** Route to get one message by id. */
-router.get('/:messageId', (req, res) => {
-    router.get("/:messageId", (req, res) => {
-        console.log(`Message ID: ${req.params.messageId}`);
-        Message.findbyId(req.params.messageId)
-          .then((message) => {
-            return res.json({ message });
-          })
-          .catch((err) => {
-            throw err.message;
-          });
-      });
-
-/** Route to add a new message. */
-router.post('/', (req, res) => {
-    let message = new Message(req.body)
-    message.save()
-    .then(message => {
-        return User.findById(message.author)
-    })
-    .then(user => {
-        // console.log(user)
-        user.messages.unshift(message)
-        return user.save()
-    })
-    .then(() => {
-        return res.send(message)
-    }).catch(err => {
-        throw err.message
-    })
-})
-
 /** Route to update an existing message. */
 router.put('/:messageId', (req, res) => {
-    Message.findByIdAndUpdate(req.params.messageId, req.body)
-    .then((message) => {
-      return res;
+  Message.findByIdAndUpdate(req.params.messageId, req.body)
+    .then(() => {
+      return Message.findOne({ _id: req.params.messageId });
     })
-    .send({
-      message: `Update message with id ${req.params.messageId}`,
-      data: req.body,
+    .then((message) => {
+      return res.json({ message });
     })
     .catch((err) => {
       throw err.message;
@@ -64,16 +54,29 @@ router.put('/:messageId', (req, res) => {
 
 /** Route to delete a message. */
 router.delete('/:messageId', (req, res) => {
-    Message.findByIdAndDelete(req.params.messageId)
+    Message.findById(req.params.messageId)
+    .then((message) => {
+      return User.findById(message.author);
+    })
+    .then((user) => {
+      user.messages = user.messages.filter(
+        (message) => message.id !== req.params.messageId
+      );
+      return user.save();
+    })
     .then(() => {
-      return res.json({
-        message: "Successfully deleted.",
-        _id: req.params.userId,
+      Message.findByIdAndDelete(req.params.messageId).then(() => {
+        return res.json({
+          message: "Successfully deleted.",
+          _id: req.params.messageId,
+        });
       });
     })
     .catch((err) => {
       throw err.message;
     });
+
 });
 
 module.exports = router;
+
